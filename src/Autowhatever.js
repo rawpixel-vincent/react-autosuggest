@@ -27,6 +27,38 @@ const defaultTheme = {
   sectionTitle: 'react-autowhatever__section-title',
 };
 
+const staticFlags = {
+  theme: null,
+  sectionsItems: [],
+  sectionsLengths: [],
+  allSectionsAreEmpty: true,
+};
+
+function setTheme(props) {
+  staticFlags.theme = themeable(props.theme);
+}
+
+function setSectionsItems(props) {
+  if (props.multiSection) {
+    staticFlags.sectionsItems = props.items.map((section) =>
+      props.getSectionItems(section)
+    );
+    staticFlags.sectionsLengths = staticFlags.sectionsItems.map(
+      (items) => items.length
+    );
+    staticFlags.allSectionsAreEmpty = staticFlags.sectionsLengths.every(
+      (itemsCount) => itemsCount === 0
+    );
+  }
+}
+
+function setSectionIterator(props) {
+  staticFlags.sectionIterator = createSectionIterator({
+    multiSection: props.multiSection,
+    data: props.multiSection ? staticFlags.sectionsLengths : props.items.length,
+  });
+}
+
 export default class Autowhatever extends Component {
   static propTypes = {
     id: PropTypes.string, // Used in aria-* attributes. If multiple Autowhatever's are rendered on a page, they must have unique ids.
@@ -84,60 +116,48 @@ export default class Autowhatever extends Component {
 
     this.state = {
       isInputFocused: false,
+      items: props.items,
+      multiSection: props.multiSection,
+      theme: props.theme,
     };
 
-    this.setSectionsItems(props);
-    this.setSectionIterator(props);
-    this.setTheme(props);
+    setSectionsItems(props);
+    setSectionIterator(props);
+    setTheme(props);
+  }
+
+  static getDerivedStateFromProps(props, state) {
+    const updatedState = {
+      ...state,
+      items: props.items,
+      multiSection: props.multiSection,
+      theme: props.theme,
+    };
+
+    if (props.items !== state.items) {
+      setSectionsItems(props);
+    }
+
+    if (
+      props.items !== state.items ||
+      props.multiSection !== state.multiSection
+    ) {
+      setSectionIterator(props);
+    }
+
+    if (props.theme !== state.theme) {
+      setTheme(props);
+    }
+
+    return updatedState;
   }
 
   componentDidMount() {
     this.ensureHighlightedItemIsVisible();
   }
 
-  // eslint-disable-next-line camelcase, react/sort-comp
-  UNSAFE_componentWillReceiveProps(nextProps) {
-    if (nextProps.items !== this.props.items) {
-      this.setSectionsItems(nextProps);
-    }
-
-    if (
-      nextProps.items !== this.props.items ||
-      nextProps.multiSection !== this.props.multiSection
-    ) {
-      this.setSectionIterator(nextProps);
-    }
-
-    if (nextProps.theme !== this.props.theme) {
-      this.setTheme(nextProps);
-    }
-  }
-
   componentDidUpdate() {
     this.ensureHighlightedItemIsVisible();
-  }
-
-  setSectionsItems(props) {
-    if (props.multiSection) {
-      this.sectionsItems = props.items.map((section) =>
-        props.getSectionItems(section)
-      );
-      this.sectionsLengths = this.sectionsItems.map((items) => items.length);
-      this.allSectionsAreEmpty = this.sectionsLengths.every(
-        (itemsCount) => itemsCount === 0
-      );
-    }
-  }
-
-  setSectionIterator(props) {
-    this.sectionIterator = createSectionIterator({
-      multiSection: props.multiSection,
-      data: props.multiSection ? this.sectionsLengths : props.items.length,
-    });
-  }
-
-  setTheme(props) {
-    this.theme = themeable(props.theme);
   }
 
   storeInputReference = (input) => {
@@ -181,11 +201,11 @@ export default class Autowhatever extends Component {
   };
 
   renderSections() {
-    if (this.allSectionsAreEmpty) {
+    if (staticFlags.allSectionsAreEmpty) {
       return null;
     }
 
-    const { theme } = this;
+    const { theme } = staticFlags;
     const {
       id,
       items,
@@ -219,7 +239,7 @@ export default class Autowhatever extends Component {
             sectionKeyPrefix={sectionKeyPrefix}
           />
           <ItemList
-            items={this.sectionsItems[sectionIndex]}
+            items={staticFlags.sectionsItems[sectionIndex]}
             itemProps={itemProps}
             renderItem={renderItem}
             renderItemData={renderItemData}
@@ -248,7 +268,7 @@ export default class Autowhatever extends Component {
       return null;
     }
 
-    const { theme } = this;
+    const { theme } = staticFlags;
     const {
       id,
       renderItem,
@@ -311,7 +331,7 @@ export default class Autowhatever extends Component {
         const [
           newHighlightedSectionIndex,
           newHighlightedItemIndex,
-        ] = this.sectionIterator[nextPrev]([
+        ] = staticFlags.sectionIterator[nextPrev]([
           highlightedSectionIndex,
           highlightedItemIndex,
         ]);
@@ -366,7 +386,7 @@ export default class Autowhatever extends Component {
   }
 
   render() {
-    const { theme } = this;
+    const { theme } = staticFlags;
     const {
       id,
       multiSection,
